@@ -1,0 +1,454 @@
+NAME
+    Net::NicoVideo - Perl Interface for accessing Nico Nico Douga
+
+VERSION
+    This is an alpha version. The API is still subject to change. Many
+    features have not been implemented yet.
+
+SYNOPSIS
+        use Net::NicoVideo;
+
+        my $video_id = $ARGV[0] or die;
+
+        my $nnv = Net::NicoVideo->new({
+            email    => 'your-nicovideo@email.address',
+            password => 'and-password',
+            });
+
+        my $info = $nnv->fetch_thumbinfo( $video_id );
+        my $flv  = $nnv->fetch_flv( $video_id );
+
+        printf "download: %s\n". $info->title;
+        if( $flv->is_economy ){
+            warn "now economy time, skip\n";
+        }else{
+            my $save_path = sprintf '%s/Movies/%s.%s',
+                $ENV{HOME}, $video_id, $info->movie_type;
+    
+            $nnv->fetch_watch( $video_id );
+            $nnv->fetch_video( $flv, $save_path );
+        
+            if( -s $save_path == $info->size_high ){
+                print "ok\n";
+            }else{
+                print "finished, but it may have broken.\n";
+            }
+        }
+
+DESCRIPTION
+    ニコニコ動画は、日本で有名な動画共有サイトです。
+
+    Nico Nico Douga (ニコニコ動画, lit. "Smile Videos") is a popular video sharing
+    website in Japan managed by Niwango, a subsidiary of Dwango.
+
+    配布 Net-NicoVideo は、ニコニコ動画のサイト内外でやりとりされる 各オブジェクト（ HTTP
+    メッセージ）へアクセスするためのインタフェースを提供します。 これにより、一貫したアクセス方法によってサイトへアクセスすることができ、
+    またカプセル化されたレスポンスがを結果として得る事ができます。
+
+    A Distribution Net-NicoVideo is Perl Interface for accessing Nico Nico
+    Douga. This provides the consistent access method, and contents are
+    encapsulated and give facilities to clients.
+
+    そしてこのクラス Net::NicoVideo は、各オブジェクトを得る為の手続きを、 コンパクトに纏めたユーティリティとしてあります。
+    インスタンスは、実際には Net::NicoVideo::UserAgent を利用しています。
+    言い換えれば、クライアントはより低レベルのアクセスのために Net::NicoVideo::UserAgent を使う事ができます。
+
+    ただしその場合は、アクセスの段取りに自ら注意を払う必要があることでしょう。
+    サイトには、あるオブジェクトを得る為に、暗黙のルールが存在するからです。
+
+    たとえば、動画ファイルを取得したい場合は、まずサイトにログインし、 flv と呼ばれるオブジェクトをリクエストし、更に動画を閲覧した上で、
+    動画の URL をリクエストしなければなりません。
+
+    クラス Net::NicoVideo のインスタンスはそうした暗黙の手続きをブラックボックス化し、 ユーザに便宜をはかります。
+
+    Net::NicoVideo, instance of this class, is an utility that actually uses
+    agent Net::NicoVideo::UserAgent. In other words, you can also use
+    Net::NicoVideo::UserAgent to tackle the low level problems. However, in
+    that case, you have to be cautious of sequence of accessing.
+
+    ニコニコ動画は 2012 年 5 月にサイトがリニューアルされました。
+    このモジュールが使える範囲は「ニコニコ動画（原宿）」と呼ばれる、リニューアル前のサイトです。
+    「ニコニコ動画（原宿）」は現在も使う事ができますが、いつまで使えるかは不明です。
+
+CONSTRUCTOR
+    コンストラクタは、フィールドを定義するハッシュ・リファレンスを受け付けます。
+
+        my $nnv = Net::NicoVideo->new({
+            user_agent  => LWP::UserAgent->new,
+            email       => 'your-nicovideo@email.address',
+            password    => 'and-password',
+            delay       => 1,
+            });
+
+    各フィールドには同名のアクセス・メソッドがあります。 そちらの説明を参照して下さい。
+
+ACCESS METHOD (LOWER LEVEL)
+    フィールドへの低レベルのアクセス・メソッド。
+
+    デフォルトやバリデーションを介さない、 フィールドを直接に設定・取得するためのものです。 引数に値を与えた場合はその値をフィールドに設定します。
+
+  user_agent
+    サイトへ HTTP （または HTTPS ）アクセスするための ユーザ・エージェントを取得、または設定します。 設定するユーザ・エージェントは
+    LWP::UserAgent のインスタンスか、 そのサブクラスのインスタンスである必要があります。
+
+    Get or set user agent that $nnv would access to Nico Nico Video via
+    HTTP(s).
+
+        $nnv->user_agent($ua);
+        $ua = $nnv->user_agent;
+
+  email
+    サイトにログインする際に要求されるメールアドレス。
+
+    Get or set email string for login to Nico Nico Video service.
+
+        $nnv->email($email);
+        $email = $nnv->email;
+
+  password
+    サイトにログインする際に要求されるメールアドレスに対するパスワード。
+
+    Get or set password string for login to Nico Nico Video service.
+
+        $nnv->password($password);
+        $password = $nnv->password;
+
+  delay
+    サイトへ連続したアクセスをする際に、アクセスごとの間に差し挟む待ち時間（秒）。
+
+    Get or set delay seconds.
+
+        $nnv->delay($seconds);
+        $seconds = $nnv->delay;
+
+ACCESS METHOD (UPPER LEVEL)
+    フィールドへの、高レベルのアクセス・メソッド。
+
+    低レベルのそれに対し、バリデーション、デフォルト値が用意されています。 コンストラクタでフィールドを設定した後のフィールドへのアクセスは、
+    通常は、これらを利用します。
+
+  get_user_agent
+    カスタマイズされたユーザ・エージェント Net::NicoVideo::UserAgent の インスタンスを作成して返します。
+
+    Net::NicoVideo::UserAgent はフィールド user_agent に設定されたインスタンスを
+    装飾するデコレータになっています。 フィールド user_agent が設定されていない場合は、 デコレートされるコンポーネントとして
+    LWP::UserAgent のインスタンスが生成されます。
+
+    Create an instance of Net::NicoVideo::UserAgent that includes
+    $nnv->user_agent has. If it does not have then LWP::UserAgent would be
+    created.
+
+  get_email
+    サイトにログインする際に要求されるメールアドレスを取得しますが、 フィールド email が未定義の場合は環境変数
+    NET_NICOVIDEO_EMAIL の値を返します。 それすらもなければ、単に undef が得られます。
+
+    Get email that the instance has. If it is not defined,
+    $ENV{NET_NICOVIDEO_EMAIL} is returned instead.
+
+    ノート：要求しようとするサイトのコンテンツによっては、ログインが必要ない場合もあります。 従って、 email および password
+    は、未設定が許容されます。
+
+  get_password
+    サイトにログインする際に要求されるメールアドレスに対するパスワードを取得しますが、 フィールド password が未定義の場合は環境変数
+    NET_NICOVIDEO_PASSWORD の値を返します。 それすらもなければ、単に undef が得られます。
+
+    Get password that the instance has. If it is not defined,
+    $ENV{NET_NICOVIDEO_PASSWORD} is returned instead.
+
+  get_delay
+    Get delay that the instance has. If it is not defined,
+    $ENV{NET_NICOVIDEO_DELAY} is returned instead. Both are not defined,
+    returns 1.
+
+FETCH METHOD
+    コンテンツ・オブジェクトを取得するメソッド群。 このカテゴリのメソッドは、サイトの各コンテンツに対応しており、
+    それぞれ、取得したコンテンツを解析した結果を持っている Net::NicoVideo::Content のインスタンスを返します。
+
+    その、返されるオブジェクトの具体的な内容については、 コンテンツの種類ごとにサブクラスが定義されているため、
+    Net::NicoVideo::Content 以下の各サブクラスを参照して下さい。
+
+    Each methods return Net::NicoVideo::Content class which stored the
+    result of having parsed the response. Please see sub classes under
+    Net::NicoVideo::Content for detail.
+
+  fetch_thumbinfo(video_id)
+    video_id に関する Thumbinfo オブジェクトを取得します。 なお Thumbinfo を得る為に、ログインは必要ありません。
+
+    Get an instance of Net::NicoVideo::Content::ThumbInfo for video_id.
+
+  fetch_flv(video_id)
+    video_id に関する Flv オブジェクトを取得します。
+
+    Get an instance of Net::NicoVideo::Content::Flv for video_id.
+
+  fetch_watch(video_id)
+    video_id に関する Watch オブジェクトを取得します。
+
+    Watch オブジェクトは仮想的なもので、実際は動画ページへアクセスし、 そこから得られる情報を持ったコンテンツ・オブジェクトです。
+
+    Get an instance of Net::NicoVideo::Content::Watch for video_id.
+
+    これは、サイトに対して、クライアントが動画を閲覧することを示します。 そしてその振る舞いは、 fetch_video
+    を呼ぶ直前に必要なことになっています。
+
+    This means that the agent watches the video, and this behavior is
+    required before fetch_video.
+
+  fetch_video(video_id, @args)
+  fetch_video(flv, @args)
+  fetch_video(url, @args)
+    第一引数に与えた video_id, flv オブジェクト, または直接の URL の動画のデータを取得します。 URL の場合、それは flv
+    オブジェクトから取得できる URL でなければ意味をなさないでしょう。
+
+    Get an instance of Net::NicoVideo::Content::Video for video_id, flv or
+    url. The url is value getting via $flv->url, and $flv is a
+    Net::NicoVideo::Content::Flv which is created by $nnv->fetch_flv.
+
+    取得したデータはそれ以降の引数によって処理される方法が異なります。 このメソッドは LWP::UserAgent の request
+    メソッドと同じで、 実際、内部で透過的にそれを呼んでいます。 たとえば、第二引数にスカラー値を与えた場合は、それはファイル・パスとして解釈され、
+    動画コンテンツはそのファイルに保存されます。 詳しくは LWP::UserAgent の request メソッドを参照して下さい。
+
+    The second parameter, it works like as request() method of
+    LWP::UserAgent, in fact, it is called. An example, if it is a scalar
+    value then it means that the file path to store contents.
+
+  fetch_thread(video_id, \%options)
+  fetch_thread(flv, \%options)
+    第一引数に与えた video_id もしくは flv オブジェクトが示す動画の、コメントを取得します。
+
+    Get an instance of Net::NicoVideo::Content::Thread for video_id.
+
+    第二引数のハッシュ・リファレンスはオプションで、次のキーと値のペアを受け取ります。
+
+    "chats" => number
+        最新のものから何件のコメントを取得するか。デフォルトは 250 です。
+
+    "fork" => boolean
+        取得するコメントを、動画オーナーのコメントだけに限定します。デフォルトは偽です。
+
+Tag
+    タグ検索のためのメソッド。
+
+  fetch_tag_rss(keyword, \%params)
+    keyword で指定したタグで動画検索を行い、結果を RSS 形式で返します。
+
+    オプションでハッシュリファレンス params を与える事ができます。 そのキーと値は次のとおりです。
+
+    "sort" => 'f|v|r|m|l'
+        検索結果を並び替えるキーワードを指定します。
+
+            f ... 投稿日時
+            v ... 再生数
+            r ... コメント数
+            m ... マイリスト数
+            l ... 再生時間
+
+        無指定のときは r コメント数になります。
+
+    "order" => a
+        並び替えの順序を指定します。 'a' を指定すると ASCEND つまり降順です。
+
+        無指定のときは DESCEND 昇順です。
+
+    "page" => number
+        検索結果が多い場合は、結果は幾つかのページに別れており、何番目のページを得るかを指定します。
+
+        無指定のときは 1 ページ目を得ます。
+
+        なお 1 ページは最大で 32 件です。
+
+  fetch_tag_rss_by_recent_post(keyword, page)
+    投稿日時の降順で得るように params を固定して fetch_tag_rss を呼び出すショートカットです。
+
+    引数にはタグと、オプションでページ番号を指定します。
+
+Mylist RSS
+    マイリストの RSS を取得するためのメソッド。
+
+  fetch_mylist_rss(mylist)
+  fetch_mylist_rss(mylist_id)
+    引数に指定した mylist または mylist_id のマイリストの RSS を保持するコンテンツ・オブジェクトを返します。
+
+    Get an instance of Net::NicoVideo::Content::MylistRSS for mylist.
+
+    ノート：非公開のマイリストでも、サイトにログインしていることで、それを得る事ができます（？）
+
+NicoAPI BASE
+    NicoAPI へアクセスするための下地を得るためのメソッド群。
+
+    NicoAPI はマイリスト類を AJAX 手段で得る為に JavaScript で実装されているライブラリの名前空間で、
+    マイリスト類のデータの取得、更新、削除などのメソッドを持っています。
+    そして、取得するためのメソッド以外の実行には、アクセス・トークンが必要になります。
+
+  fetch_mylist_page
+    ログインしているユーザの「マイリスト」ページを取得し、 そのページを解析した結果を持つ
+    Net::NicoVideo::Content::MylistPage オブジェクトを返します。
+
+    Get an instance of Net::NicoVideo::Content::MylistPage for take a
+    "NicoAPI.token".
+
+    主にアクセス・トークンを得るためのものです。
+
+  fetch_mylist_item(video_id)
+    ログインしているユーザで、 video_id に対する「マイリストの追加」ページを取得し、 そのページを解析した結果を持つ
+    Net::NicoVideo::Content::MylistItem オブジェクトを返します。
+
+    Get an instance of Net::NicoVideo::Content::MylistItem, This method is
+    useful for take a "NicoAPI.token" to update Mylist, "item_type" and
+    "item_id" for video_id.
+
+    これにより video_id の動画に対する "item_id" および "item_type" を得る事ができます。
+
+    なお "item_type" は、動画に対してはゼロ "0" が固定の値となっていますが、
+    このメソッドではそれをリクエストして得たページのコンテンツ内容から動的に取得します。
+    また、そのページではアクセス・トークンが得られるのでついでにそれも取得します。
+
+NicoAPI.MylistGroup
+    NicoAPI.MylistGroup のメソッド群。
+
+    マイリスト・グループを操作するメソッド群です。 取得するためのメソッド以外の実行には、アクセス・トークンが必要になります。
+
+    ただし、トークン省略しても、内部で自動的に取得され、それが用いられます。 しかしすでにアクセス・トークンを持っている場合は、それを指定する事で、
+    アクセス・トークンの取得の為のサイトへのアクセスをなくす事ができます。
+
+  list_mylistgroup()
+    ログインしたユーザのマイリスト・グループのリストを取得します。
+
+    Get an instance of Net::NicoVideo::Content::MylistGroup for user own
+
+    これは、 NicoAPI.MylistGroup#list に相当します。
+
+    This is equivalent to NicoAPI.MylistGroup#list.
+
+  get_mylistgroup(group_id)
+    指定した grpup_id のマイリスト・グループを取得します。
+
+    Get an instance of Net::NicoVideo::Content::MylistGroup for specified
+    group_id.
+
+    これは、 NicoAPI.MylistGroup#get に相当します。
+
+    This is equivalent to NicoAPI.MylistGroup#get.
+
+  add_mylistgroup(mylist, token)
+    ログインしたユーザのマイリスト・グループにマイリストを追加します。
+
+    Add a mylist to mylistgroup.
+
+    これは、 NicoAPI.MylistGroup#add に相当します。
+
+    This is equivalent to NicoAPI.MylistGroup#add
+
+  update_mylistgroup(mylist, token)
+    ログインしたユーザのマイリスト・グループの情報を更新します。
+
+    Update a mylist.
+
+    これは、 NicoAPI.MylistGroup#update に相当します。
+
+    This is equivalent to NicoAPI.MylistGroup#update
+
+  remove_mylistgroup(mylist, token)
+  delete_mylistgroup(mylist, token)
+    指定したマイリストをログインしたユーザのマイリスト・グループから削除します。
+
+    Remove a mylist.
+
+    This is equivalent to NicoAPI.MylistGroup#remove
+
+    これは、 NicoAPI.MylistGroup#remove に相当します。
+
+NicoAPI.Mylist
+    NicoAPI.Mylist のメソッド群。
+
+    マイリストのアイテムを操作するメソッド群です。 取得するためのメソッド以外の実行には、アクセス・トークンが必要になります。
+
+    ただし、トークン省略しても、内部で自動的に取得され、それが用いられます。 しかしすでにアクセス・トークンを持っている場合は、それを指定する事で、
+    アクセス・トークンの取得の為のサイトへのアクセスをなくす事ができます。
+
+  list_mylist(group)
+    group_id のマイリストのアイテム一覧を得ます。 これは、 NicoAPI.Mylist#list に相当します。
+
+  add_mylist(group, item, [token])
+    アイテム item をマイリスト mylist に追加します。 これは、 NicoAPI.Mylist#add に相当します。
+
+  update_mylist(group, item, [token])
+    マイリスト mylist のアイテム item を更新します。 これは、 NicoAPI.Mylist#update に相当します。
+
+  remove_mylist(group, item, [token])
+  delete_mylist(group, item, [token])
+    マイリスト mylist のアイテム item を削除します。 これは、 NicoAPI.Mylist#remove に相当します。
+
+  move_mylist(group, target, item, [token])
+    マイリスト mylist のアイテム item をマイリスト target へ移動します。 これは、 NicoAPI.Mylist#move
+    に相当します。
+
+  copy_mylist(group, target, item, [token])
+    マイリスト mylist のアイテム item をマイリスト target へコピーします。 これは、 NicoAPI.Mylist#copy
+    に相当します。
+
+UTILITY METHOD
+    その他ユーティリティ。
+
+  through_login(ua)
+    引数に与えたユーザ・エージェント Net::NicoVideo::UserAgent のインスタンスを、
+    ログイン・ページへ導き、そしてログインを行います。 そして、その結果を持たせて返却します。
+
+    典型的には、次のように使われます。 ログインが必要なページを、まずログインすることなしにアクセスを試み、
+    そのレスポンスから、ログインが要求されている事を知ったとき、 はじめてそこでログインを試み、
+    そしてログインした状態でコンテンツを改めて取得します。
+
+    This returns $ua which made it go via a login page:
+
+        $res = $ua->request_mylist_rss($mylist);
+        unless( $res->is_authflagged ){             # if not logged-in
+            $ua = $self->through_login($ua);        # login
+            $res = $ua->request_mylist_rss($mylist); # try again
+        }
+
+    ログインに失敗した際は croak されます。
+
+    なお引数に与えたインスタンスと、 返却されるインスタンスは同じインスタンスです。
+
+    The returning $ua is the same instance as what was given.
+
+  download(video_id, file)
+    動画ファイルをダウンロードするための一連の段取りをまとめた、 ショートカットです。
+
+    A shortcut to download video which is identified by video_id.
+
+    忙しい時には、ワンライナーでお望みの動画をダウンロードできます。 次のように：
+
+    For busy person, you can download a video by one liner like this:
+
+        $ perl -MNet::NicoVideo -e 'Net::NicoVideo->new->download(@ARGV)' \
+            smNNNNNN ./smile.mp4
+
+    ただし、これから説明する環境変数を予めセットしておく必要があるでしょう。
+
+    Note that it is necessary to set environment variables in advance.
+
+ENVIRONMENT VARIABLE
+        NET_NICOVIDEO_EMAIL
+        NET_NICOVIDEO_PASSWORD
+        NET_NICOVIDEO_DELAY
+
+    これらの明らかなる名前の環境変数が、その名の示すとおりの役割で有効です。
+
+    These obvious environment variables are effective. If the object has
+    each value as its members, priority is given to them.
+
+SEE ALSO
+    LWP::UserAgent Net::NicoVideo::Content Net::NicoVideo::UserAgent
+
+REPOSITORY
+    Net::NicoVideo is hosted on github
+    https://github.com/hiroaki/Net-NicoVideo
+
+AUTHOR
+    WATANABE Hiroaki <hwat@mac.com>
+
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
