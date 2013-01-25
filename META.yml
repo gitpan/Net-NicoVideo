@@ -28,4 +28,4 @@ requires:
   Test::More: 0.32
   XML::FeedPP: 0
   XML::TreePP: 0
-version: 0.01_20
+version: 0.01_23
