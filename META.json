@@ -1,12 +1,12 @@
 {
    "abstract" : "unknown",
    "author" : [
-      "unknown"
+      "WATANABE Hiroaki <hwat@cpan.org>"
    ],
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120630",
    "license" : [
-      "unknown"
+      "perl_5"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
@@ -34,17 +34,19 @@
          "requires" : {
             "CGI::Simple" : "0",
             "Class::Accessor::Fast" : "0",
-            "HTML::Parser" : "3",
+            "Encode" : "0",
+            "HTML::Parser" : "3.00",
             "HTTP::Cookies" : "0",
             "HTTP::Request::Common" : "0",
             "JSON" : "2.01",
             "LWP::UserAgent" : "0",
             "Test::More" : "0.32",
             "XML::FeedPP" : "0",
-            "XML::TreePP" : "0"
+            "XML::TreePP" : "0",
+            "perl" : "5.008001"
          }
       }
    },
    "release_status" : "testing",
-   "version" : "0.01_24"
+   "version" : "0.01_25"
 }
