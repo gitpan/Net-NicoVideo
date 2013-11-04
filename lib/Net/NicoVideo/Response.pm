@@ -3,9 +3,11 @@ package Net::NicoVideo::Response;
 use strict;
 use warnings;
 use vars qw($VERSION);
-$VERSION = '0.01_26';
+$VERSION = '0.28';
 
-use base qw/Net::NicoVideo::Decorator/;
+# NOTE: Never inherit with classes that have "get()" or "set()",
+# because these interfere with _component which is decorated with Net::NicoVideo::Decorator
+use base qw(Net::NicoVideo::Decorator);
 
 sub is_authflagged {
     my $self = shift;
@@ -16,18 +18,21 @@ sub is_authflagged {
 # before calling this
 sub parsed_content { # abstract
     my $self = shift;
-    $self->_component->decoded_content;
+    Net::NicoVideo::Content->new($self->_component)->parse;
 }
 
+# DEPRECATED - use Net::NicoVideo::Content#is_success instead
 sub is_content_success { # abstract
     my $self = shift;
-    $self->_component->is_success;
+    $self->parsed_content->is_success;
 }
 
+# DEPRECATED - use Net::NicoVideo::Content#is_error instead
 sub is_content_error { # abstract
     my $self = shift;
-    $self->_component->is_error;
+    $self->parsed_content->is_error;
 }
+
 
 1;
 __END__
